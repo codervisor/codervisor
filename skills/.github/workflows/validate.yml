@@ -1,0 +1,28 @@
+name: Validate Skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check skill structure
+        run: |
+          for skill_dir in .agents/skills/*/; do
+            name=$(basename "$skill_dir")
+            if [ ! -f "${skill_dir}SKILL.md" ]; then
+              echo "ERROR: ${skill_dir} missing SKILL.md"
+              exit 1
+            fi
+            if ! grep -q "^name:" "${skill_dir}SKILL.md"; then
+              echo "ERROR: ${skill_dir}SKILL.md missing 'name:' frontmatter"
+              exit 1
+            fi
+            echo "OK: ${name}"
+          done

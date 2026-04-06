@@ -1,0 +1,318 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.1.0)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run — build and validate without publishing'
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 0.1.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run — build and validate without publishing'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.resolve-sha.outputs.sha }}
+      dry_run: ${{ steps.flags.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag or input
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            RAW_VERSION="${{ inputs.version }}"
+            RAW_VERSION="${RAW_VERSION#v}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            RAW_VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            # Default: read from package.json (used by CI dry-run)
+            RAW_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          fi
+
+          # Reject whitespace
+          case "$RAW_VERSION" in
+            *[[:space:]]*)
+              echo "Error: version must not contain whitespace: '$RAW_VERSION'" >&2
+              exit 1
+              ;;
+          esac
+
+          # Validate semver: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
+          if ! printf '%s' "$RAW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "Error: '$RAW_VERSION' is not valid semver (e.g. 0.1.0, 1.2.3-beta.1)" >&2
+            exit 1
+          fi
+
+          echo "version=$RAW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$RAW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $RAW_VERSION (tag: v$RAW_VERSION)"
+
+      - name: Set flags
+        id: flags
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry_run=true" >> "$GITHUB_OUTPUT"
+            echo "Dry run mode — will build and validate but skip publishing"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump versions and commit
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+        run: |
+          bash scripts/set-npm-version.sh ${{ steps.version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packages/cli/package.json npm/*/package.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+            git push origin HEAD:main
+          fi
+
+      - name: Bump versions (dry run — no commit)
+        if: (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.dry_run == true && inputs.version != ''
+        run: |
+          bash scripts/set-npm-version.sh ${{ steps.version.outputs.version }}
+          echo "Dry run: version bumped locally but not committed"
+
+      - name: Resolve build SHA
+        id: resolve-sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [prepare]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: synodic-linux-x64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: synodic-linux-arm64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: synodic-darwin-x64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: synodic-darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> "$GITHUB_ENV"
+
+      - name: Build release binaries
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binaries
+        run: |
+          mkdir -p dist
+          cp rust/target/${{ matrix.target }}/release/synodic dist/ 2>/dev/null || true
+          tar czf ${{ matrix.artifact }}.tar.gz -C dist .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz
+
+  docker:
+    name: Docker image
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: needs.prepare.outputs.dry_run != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: ${{ needs.prepare.outputs.dry_run != 'true' }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ needs.prepare.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  npm-publish:
+    name: Publish npm packages
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: synodic-*
+
+      - name: Prepare platform packages
+        run: |
+          # Map artifact names to npm package directories
+          declare -A ARTIFACT_MAP=(
+            ["synodic-darwin-arm64"]="npm/cli-darwin-arm64"
+            ["synodic-darwin-x64"]="npm/cli-darwin-x64"
+            ["synodic-linux-x64"]="npm/cli-linux-x64"
+            ["synodic-linux-arm64"]="npm/cli-linux-arm64"
+          )
+
+          for artifact in "${!ARTIFACT_MAP[@]}"; do
+            pkg_dir="${ARTIFACT_MAP[$artifact]}"
+            echo "Extracting $artifact -> $pkg_dir"
+            tar xzf "artifacts/$artifact/$artifact.tar.gz" -C "$pkg_dir"
+            chmod +x "$pkg_dir/synodic"
+            ls -la "$pkg_dir/"
+          done
+
+      - name: Validate platform packages (dry run)
+        if: needs.prepare.outputs.dry_run == 'true'
+        run: |
+          echo "=== DRY RUN: validating packages with npm pack ==="
+          for dir in npm/cli-darwin-arm64 npm/cli-darwin-x64 npm/cli-linux-x64 npm/cli-linux-arm64; do
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            echo "Validating $pkg_name@$pkg_version..."
+            npm pack "./$dir" --dry-run
+          done
+          echo ""
+          pkg_name=$(node -p "require('./packages/cli/package.json').name")
+          pkg_version=$(node -p "require('./packages/cli/package.json').version")
+          echo "Validating $pkg_name@$pkg_version..."
+          npm pack ./packages/cli --dry-run
+
+      - name: Publish platform packages
+        if: needs.prepare.outputs.dry_run != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for dir in npm/cli-darwin-arm64 npm/cli-darwin-x64 npm/cli-linux-x64 npm/cli-linux-arm64; do
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            if npm view "$pkg_name@$pkg_version" >/dev/null 2>&1; then
+              echo "Skipping $pkg_name@$pkg_version (already exists)"
+              continue
+            fi
+            echo "Publishing $pkg_name@$pkg_version..."
+            npm publish "./$dir" --access public
+          done
+
+      - name: Publish wrapper package
+        if: needs.prepare.outputs.dry_run != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pkg_name=$(node -p "require('./packages/cli/package.json').name")
+          pkg_version=$(node -p "require('./packages/cli/package.json').version")
+          if npm view "$pkg_name@$pkg_version" >/dev/null 2>&1; then
+            echo "Skipping $pkg_name@$pkg_version (already exists)"
+          else
+            echo "Publishing $pkg_name@$pkg_version..."
+            npm publish ./packages/cli --access public
+          fi
+
+  release:
+    name: Create GitHub Release
+    needs: [prepare, build, docker, npm-publish]
+    if: needs.prepare.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: synodic-*
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ needs.prepare.outputs.sha }}
+          generate_release_notes: true
+          files: artifacts/**/*.tar.gz
+
+  summary:
+    name: Dry run summary
+    needs: [prepare, build, docker, npm-publish]
+    if: needs.prepare.outputs.dry_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "## Dry Run Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** ${{ needs.prepare.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Tag:** ${{ needs.prepare.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**SHA:** ${{ needs.prepare.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "All jobs passed. Re-run without dry_run to publish for real." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,38 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Turborepo
+.turbo/
+
+# Platform packages (generated at publish time)
+platform-packages/
+
+# Publish backup files
+*.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# SCIP
+*.scip
+*.scip.json
+
+# Ising generated database
+*.db
+
+# Temporary
+tmp/

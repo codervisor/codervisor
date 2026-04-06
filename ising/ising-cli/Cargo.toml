@@ -1,0 +1,29 @@
+[package]
+name = "ising-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CLI for the Ising three-layer code graph analysis engine"
+
+[[bin]]
+name = "ising"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+ising-core = { path = "../ising-core" }
+ising-db = { path = "../ising-db" }
+ising-builders = { path = "../ising-builders" }
+ising-analysis = { path = "../ising-analysis" }
+ising-server = { path = "../ising-server" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

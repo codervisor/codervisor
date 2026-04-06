@@ -5,35 +5,45 @@ const fs = require('fs');
 const path = require('path');
 
 const META_FILE = path.join(__dirname, '..', '.meta');
-const WORKFLOWS_DIR = path.join(__dirname, '..', '.github', 'workflows');
+const CALLERS_DIR = path.join(__dirname, '..', 'templates', 'callers');
+
+// Map project names to their CI caller template
+const PROJECT_TYPE = {
+  stiglab: 'rust',
+  ising: 'rust',
+  synodic: 'typescript',
+  telegramable: 'typescript',
+};
 
 function main() {
   const meta = JSON.parse(fs.readFileSync(META_FILE, 'utf8'));
   const projects = Object.keys(meta.projects);
 
-  const workflows = fs.readdirSync(WORKFLOWS_DIR).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
-
-  if (workflows.length === 0) {
-    console.log('No workflow files found in .github/workflows/ — nothing to sync.');
-    return;
-  }
-
   for (const project of projects) {
-    const destDir = path.join(__dirname, '..', project, '.github', 'workflows');
-
-    if (!fs.existsSync(path.join(__dirname, '..', project))) {
-      console.log(`⏭  ${project}/ not cloned — skipping`);
+    const projectDir = path.join(__dirname, '..', project);
+    if (!fs.existsSync(projectDir)) {
+      console.log(`⏭  ${project}/ not present — skipping`);
       continue;
     }
 
+    const type = PROJECT_TYPE[project];
+    if (!type) {
+      console.log(`⏭  ${project} has no CI template mapping — skipping`);
+      continue;
+    }
+
+    const src = path.join(CALLERS_DIR, `ci.yml.${type}`);
+    if (!fs.existsSync(src)) {
+      console.log(`⏭  Template ci.yml.${type} not found — skipping`);
+      continue;
+    }
+
+    const destDir = path.join(projectDir, '.github', 'workflows');
     fs.mkdirSync(destDir, { recursive: true });
 
-    for (const wf of workflows) {
-      const src = path.join(WORKFLOWS_DIR, wf);
-      const dest = path.join(destDir, wf);
-      fs.copyFileSync(src, dest);
-      console.log(`✓  ${wf} → ${project}/.github/workflows/${wf}`);
-    }
+    const dest = path.join(destDir, 'ci.yml');
+    fs.copyFileSync(src, dest);
+    console.log(`✓  ci.yml (${type}) → ${project}/.github/workflows/ci.yml`);
   }
 
   console.log('\nDone. Review changes in each child repo before committing.');

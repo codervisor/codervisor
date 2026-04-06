@@ -1,0 +1,19 @@
+[package]
+name = "harness-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Synodic — AI agent governance CLI (L1 git hooks + L2 Claude Code hooks)"
+
+[[bin]]
+name = "synodic"
+path = "src/main.rs"
+
+[dependencies]
+harness-core = { path = "../harness-core" }
+clap = { version = "4", features = ["derive", "env"] }
+serde_json = "1"
+anyhow = "1"
+regex = "1"
+tokio = { version = "1", features = ["full"] }
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
