@@ -1,0 +1,15 @@
+{
+  "name": "codervisor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Meta-repository aggregating codervisor projects for cross-cutting governance, CI, and shared tooling.",
+  "scripts": {
+    "clone": "meta git clone",
+    "pull": "meta git pull",
+    "status": "meta git status",
+    "sync:ci": "node scripts/sync-ci.js",
+    "sync:hooks": "node scripts/sync-hooks.js",
+    "exec": "meta exec"
+  },
+  "license": "UNLICENSED"
+}

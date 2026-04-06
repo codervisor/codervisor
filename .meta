@@ -1,0 +1,10 @@
+{
+  "projects": {
+    "stiglab": "git@github.com:codervisor/stiglab.git",
+    "synodic": "git@github.com:codervisor/synodic.git",
+    "telegramable": "git@github.com:codervisor/telegramable.git",
+    "ising": "git@github.com:codervisor/ising.git",
+    "skills": "git@github.com:codervisor/skills.git",
+    "lean-spec": "git@github.com:codervisor/lean-spec.git"
+  }
+}
