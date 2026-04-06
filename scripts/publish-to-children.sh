@@ -37,7 +37,7 @@ done
 
 # Read project list from .meta
 PROJECTS=$(node -e "
-  const m = require('./.meta');
+  const m = JSON.parse(require('fs').readFileSync('./.meta', 'utf8'));
   for (const name of Object.keys(m.projects)) {
     console.log(name);
   }
@@ -159,6 +159,7 @@ push_file() {
   existing_sha=$(gh api "repos/$OWNER/$repo/contents/$remote_path?ref=$branch" --jq '.sha' 2>/dev/null || echo "")
 
   local api_args=(
+    -X PUT
     "repos/$OWNER/$repo/contents/$remote_path"
     -f "message=chore: sync $remote_path from meta-repo"
     -f "content=$content"
