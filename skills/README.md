@@ -7,6 +7,7 @@ Public agent skills for Codervisor tools. Install via [`npx skills`](https://git
 | Skill | Install | Description |
 |-------|---------|-------------|
 | `leanspec` | `npx skills add codervisor/skills@leanspec` | Spec-Driven Development methodology for LeanSpec projects |
+| `railway` | `npx skills add codervisor/skills@railway` | Access Railway deployments, logs, and environment variables |
 
 ## Install a Skill
 
