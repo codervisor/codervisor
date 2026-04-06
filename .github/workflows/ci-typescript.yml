@@ -12,11 +12,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Detect package manager
+        id: pm
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "manager=pnpm" >> "$GITHUB_OUTPUT"
+          elif [ -f yarn.lock ]; then
+            echo "manager=yarn" >> "$GITHUB_OUTPUT"
+          else
+            echo "manager=npm" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.pm.outputs.manager == 'pnpm'
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-          cache: npm
+          cache: ${{ steps.pm.outputs.manager }}
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.pm.outputs.manager == 'pnpm'
+      - run: yarn --frozen-lockfile
+        if: steps.pm.outputs.manager == 'yarn'
       - run: npm ci
-      - run: npm run lint --if-present
-      - run: npm run typecheck --if-present
-      - run: npm test --if-present
+        if: steps.pm.outputs.manager == 'npm'
+
+      - run: ${{ steps.pm.outputs.manager }} run lint --if-present
+      - run: ${{ steps.pm.outputs.manager }} run typecheck --if-present
+      - run: ${{ steps.pm.outputs.manager }} test --if-present
