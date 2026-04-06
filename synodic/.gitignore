@@ -1,0 +1,24 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Project — track shared config, ignore local state
+/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
+
+# Rust
+rust/target/
+
+# Synodic pipeline worktrees
+.synodic/

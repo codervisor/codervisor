@@ -7,9 +7,16 @@
     "clone": "meta git clone",
     "pull": "meta git pull",
     "status": "meta git status",
+    "exec": "meta exec",
+    "subtree:add": "bash scripts/subtree-add.sh",
+    "subtree:pull": "bash scripts/subtree-pull.sh",
+    "subtree:push": "bash scripts/subtree-push.sh",
     "sync:ci": "node scripts/sync-ci.js",
     "sync:hooks": "node scripts/sync-hooks.js",
-    "exec": "meta exec"
+    "sync:claude": "node scripts/sync-claude.js",
+    "sync:all": "node scripts/sync-ci.js && node scripts/sync-hooks.js && node scripts/sync-claude.js",
+    "publish": "bash scripts/publish-to-children.sh",
+    "publish:direct": "bash scripts/publish-to-children.sh --direct"
   },
   "license": "UNLICENSED"
 }

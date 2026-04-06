@@ -1,0 +1,35 @@
+# Rust
+/target
+debug/
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+/data/
+*.db
+*.db-journal
+
+# Logs
+*.log

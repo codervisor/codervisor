@@ -1,0 +1,39 @@
+{
+  "name": "@codervisor/synodic",
+  "version": "0.1.0",
+  "description": "Synodic — AI agent governance via hooks. Enforce rules on AI coding agent sessions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codervisor/synodic.git",
+    "directory": "packages/cli"
+  },
+  "type": "module",
+  "homepage": "https://github.com/codervisor/synodic",
+  "keywords": [
+    "synodic",
+    "ai",
+    "agent",
+    "governance",
+    "hooks",
+    "claude",
+    "coding-agent",
+    "security"
+  ],
+  "bin": {
+    "synodic": "bin/synodic"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.mjs"
+  },
+  "files": [
+    "bin/",
+    "scripts/"
+  ],
+  "optionalDependencies": {
+    "@codervisor/synodic-darwin-arm64": "0.1.0",
+    "@codervisor/synodic-darwin-x64": "0.1.0",
+    "@codervisor/synodic-linux-x64": "0.1.0",
+    "@codervisor/synodic-linux-arm64": "0.1.0"
+  }
+}

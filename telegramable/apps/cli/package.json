@@ -1,0 +1,27 @@
+{
+  "name": "@telegramable/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegramable CLI — command-line interface and service manager for the telegramable daemon",
+  "main": "dist/cli.js",
+  "bin": {
+    "telegramable": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts start",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js start"
+  },
+  "dependencies": {
+    "@telegramable/core": "workspace:*",
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

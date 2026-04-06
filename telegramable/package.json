@@ -1,0 +1,23 @@
+{
+  "name": "telegramable",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram-first AI agent interface — ask your AI to do things via instant messaging",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "start": "pnpm --filter @telegramable/cli start",
+    "test": "turbo run test",
+    "test:integration": "pnpm --filter @telegramable/core test:integration",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "turbo": "^2.5.8",
+    "typescript": "^5.7.3"
+  }
+}
