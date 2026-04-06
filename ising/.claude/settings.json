@@ -1,10 +1,15 @@
 {
-  "$schema": "https://claude.ai/code/settings-schema.json",
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "echo '--- codervisor session start ---' && if [ -f Cargo.toml ]; then echo 'Rust project detected' && cargo check --quiet 2>&1 | tail -5; elif [ -f package.json ]; then echo 'Node project detected' && npm install --prefer-offline --silent 2>&1 | tail -3; fi && echo '--- ready ---'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/../scripts/cloud/ising.sh || echo '--- fallback: cargo check ---' && cargo check --quiet 2>&1 | tail -5",
+            "timeout": 120,
+            "statusMessage": "Setting up ising cloud environment..."
+          }
+        ]
       }
     ]
   }
